@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { commands, ConfigurationChangeEvent, Disposable, ViewColumn, WebviewPanel, window, workspace, Uri } from "vscode";
 import * as path from "path";
 import * as fse from "fs-extra";
-import { acwingManager } from "../repo/AcwingManager";
+import { acwingManager } from "../repo/acwingManager";
 import { Problem } from "../repo/Problem";
 import { ProblemContent } from "../repo/ProblemContent";
 
@@ -160,10 +160,11 @@ class ProblemPreviewView implements Disposable {
     private getHtmlHead() {
         let html = `
             <meta http-equiv="Content-Security-Policy"
-                content = "default-src https://cdn.acwing.com 'unsafe-inline' 'none' ; 
-                img-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com  https:; 
-                script-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com 'unsafe-inline';
-                style-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com 'unsafe-inline';"
+                content = "default-src https://cdn.acwing.com https://cdn.jsdelivr.net 'unsafe-inline' 'none' ;
+                img-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com  https: ;
+                script-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com https://cdn.jsdelivr.net 'unsafe-inline';
+                style-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com https://cdn.jsdelivr.net 'unsafe-inline';
+                font-src ${ this.panel?.webview.cspSource } https://cdn.acwing.com https://cdn.jsdelivr.net;"
             />
             <link rel="stylesheet" href="${this.getResWebUri('acwing.css')}">
             <link rel="stylesheet" href="${this.getResWebUri('primer.css')}">
@@ -248,22 +249,14 @@ class ProblemPreviewView implements Disposable {
 
     private getHtmlScript() {
         let html = `
-            <button id="solve">Code Now</button>                
-            <script type="text/javascript" src="https://cdn.acwing.com/static/MathJax-2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-            <script type="text/x-mathjax-config;executed=true">
-                MathJax.Hub.Config({
-                    tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]},
-                    showMathMenu: false,
-                });
-            </script>
+            <button id="solve">Code Now</button>
             <script>
-                console.log("MathJax.Hub.Config");
-                MathJax.Hub.Config({
-                    tex2jax: {inlineMath: [['$','$'], ['\\(','\\)']]},
-                    showMathMenu: false,
-                });
-                //MathJax.Hub.Queue(["Typeset", MathJax.Hub]);
+                window.MathJax = {
+                  tex: { inlineMath: [['$','$'], ['\\\\(','\\\\)']] },
+                  chtml: { scale: 1 }
+                };
             </script>
+            <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
             <script>
                 const vscode = acquireVsCodeApi();
                 const button = document.getElementById('solve');

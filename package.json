@@ -33,7 +33,9 @@
     "onCommand:acwing.gotoPage",
     "onCommand:acwing.previewProblem",
     "onCommand:acwing.editProblem",
-    "onView:acWing"
+    "onCommand:acWing.searchProblem",
+    "onView:acWing",
+    "onView:acWingCourses"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -50,9 +52,15 @@
       "ac-problem-explorer": [
         {
           "id": "acWing",
-          "name": "AcWing",
+          "name": "题库",
           "icon": "media/logo-w.png",
           "contextualTitle": "AcWing"
+        },
+        {
+          "id": "acWingCourses",
+          "name": "课程",
+          "icon": "media/logo-w.png",
+          "contextualTitle": "AcWing 课程"
         }
       ]
     },
@@ -110,6 +118,26 @@
         "command": "acWing.nextPage",
         "title": "下一页",
         "icon": "$(triangle-left)"
+      },
+      {
+        "command": "acWing.toggleViewMode",
+        "title": "切换分组/平铺视图",
+        "category": "AcWing",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "acWing.searchProblem",
+        "title": "搜索题目",
+        "category": "AcWing",
+        "icon": "$(search)"
+      },
+      {
+        "command": "acWing.refreshCourses",
+        "title": "刷新课程列表",
+        "icon": {
+          "light": "resources/light/refresh.svg",
+          "dark": "resources/dark/refresh.svg"
+        }
       }
     ],
     "menus": {
@@ -125,6 +153,16 @@
           "group": "navigation@3"
         },
         {
+          "command": "acWing.toggleViewMode",
+          "when": "view == acWing",
+          "group": "navigation@5"
+        },
+        {
+          "command": "acWing.searchProblem",
+          "when": "view == acWing",
+          "group": "navigation@0"
+        },
+        {
           "command": "acWing.prevPage",
           "when": "view == acWing",
           "group": "navigation@2"
@@ -133,6 +171,16 @@
           "command": "acWing.nextPage",
           "when": "view == acWing",
           "group": "navigation@1"
+        },
+        {
+          "command": "acWing.refreshCourses",
+          "when": "view == acWingCourses",
+          "group": "navigation"
+        },
+        {
+          "command": "acWing.searchProblem",
+          "when": "view == acWingCourses",
+          "group": "navigation@0"
         }
       ]
     },
@@ -235,13 +283,29 @@
             },
             "description": "定义代码编辑器中的快捷方式",
             "order": 6
+          },
+          "acWing.viewMode": {
+            "type": "string",
+            "default": "flat",
+            "enum": [
+              "flat",
+              "group"
+            ],
+            "enumDescriptions": [
+              "平铺列表",
+              "按来源分组"
+            ],
+            "scope": "application",
+            "description": "题库视图模式",
+            "order": 7
           }
         }
       }
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -260,6 +324,7 @@
     "@typescript-eslint/eslint-plugin": "^5.42.0",
     "@typescript-eslint/parser": "^5.42.0",
     "@vscode/test-electron": "^2.2.0",
+    "esbuild": "^0.28.1",
     "eslint": "^8.26.0",
     "glob": "^8.0.3",
     "mocha": "^10.1.0",

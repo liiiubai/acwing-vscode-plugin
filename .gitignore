@@ -3,3 +3,6 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+.trae/
+local_files/
+_debug_*

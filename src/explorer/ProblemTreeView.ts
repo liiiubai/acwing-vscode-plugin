@@ -1,25 +1,19 @@
-/*
- * @Author: richard 
- * @Date: 2022-11-17 14:55:50 
- * @Last Modified by: richard
- * @Last Modified time: 2022-11-17 16:45:59
- */
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import * as _ from "lodash";
-import * as path from 'path';
-import { acwingManager } from "../repo/AcwingManager";
-import { Problem, ProblemState } from '../repo/Problem'
+import { acwingManager } from "../repo/acwingManager";
+import { Problem, ProblemState } from '../repo/Problem';
+import { SourceGroup, TreeNode } from './SourceGroup';
 
-export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
+export class ProblemTreeProvider implements vscode.TreeDataProvider<TreeNode> {
 
-	private _onDidChangeTreeData: vscode.EventEmitter<Problem | undefined | void> = new vscode.EventEmitter<Problem | undefined | void>();
-	readonly onDidChangeTreeData: vscode.Event<Problem | undefined | void> = this._onDidChangeTreeData.event;
+	private _onDidChangeTreeData: vscode.EventEmitter<TreeNode | undefined | void> = new vscode.EventEmitter<TreeNode | undefined | void>();
+	readonly onDidChangeTreeData: vscode.Event<TreeNode | undefined | void> = this._onDidChangeTreeData.event;
 
 	private currentPage = 1;
 	private problemList: Problem[] = [];
-	private treeView: vscode.TreeView<Problem> | undefined;
+	private treeView: vscode.TreeView<TreeNode> | undefined;
 	private mContext: vscode.ExtensionContext | undefined;
+	private viewMode: 'flat' | 'group' = 'flat';
 
 	constructor() {
 
@@ -27,6 +21,7 @@ export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
 
 	public init (context: vscode.ExtensionContext) {
 		this.currentPage = context.globalState.get('lastPage', 1);
+		this.viewMode = vscode.workspace.getConfiguration().get<'flat' | 'group'>("acWing.viewMode", 'flat');
 		let acWingTreeView = vscode.window.createTreeView("acWing", {treeDataProvider: this});
 		acWingTreeView.title = this.currentPage.toString();
 		this.setTreeView(acWingTreeView);
@@ -35,17 +30,13 @@ export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
 	}
 
 	public async refresh(): Promise<void> {
-		// 强制拉去一下数据，刷新缓存
 		let newProblemList = await acwingManager.getProblemsByPage(this.currentPage, true);
-		// 检查一下，是否需要刷新UI, 其实主要是状态
 		if (newProblemList && newProblemList.length == this.problemList.length) {
 			for (let i = 0; i < newProblemList.length; i++) {
 				if (!_.isEqual(newProblemList[i], this.problemList[i])) {
-					// 有一个不一样，就刷新
 					break;
 				}
 			}
-			// 全都一致，不刷新
 			console.log('ProblemTreeProvider refresh() skip.');
 			return;
 		}
@@ -72,7 +63,6 @@ export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
 		this._onDidChangeTreeData.fire();
 	}
 
-	// 跳转到页面
 	public async gotoPage (): Promise<void> {
 		const pageOption: vscode.InputBoxOptions = {
 			title: "请输入页码",
@@ -94,8 +84,13 @@ export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
 		this._onDidChangeTreeData.fire();
 	}
 
+	public toggleViewMode(): void {
+		this.viewMode = this.viewMode === 'flat' ? 'group' : 'flat';
+		vscode.workspace.getConfiguration().update("acWing.viewMode", this.viewMode, vscode.ConfigurationTarget.Global);
+		this._onDidChangeTreeData.fire();
+	}
 
-	public setTreeView(view: vscode.TreeView<Problem>) {
+	public setTreeView(view: vscode.TreeView<TreeNode>) {
 		this.treeView = view;
 	}
 
@@ -108,44 +103,19 @@ export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
 		if (maxPage) {
 			this.treeView.title = this.treeView.title + '/' + maxPage;
 		}
-	}
-
-	getTreeItem(element: Problem): vscode.TreeItem {
-		if (element.id === "notSignIn") {
-            return {
-                label: element.name,
-                collapsibleState: vscode.TreeItemCollapsibleState.None,
-                command: {
-                    command: "acWing.setCookie",
-                    title: "登录设置cookies",
-					arguments: []
-                },
-            };
-        }
-
-		let iconPath: string = "";
-   		if (element.state == ProblemState.ACCEPTED) {
-			iconPath =  path.join(__filename, '..', '..', '..', 'resources', 'check.png');
-		} else if (element.state == ProblemState.TRY) {
-			iconPath = path.join(__filename, '..', '..', '..', 'resources', 'x.png');
-		} else {
-			iconPath =  path.join(__filename, '..', '..', '..', 'resources', 'blank.png');
+		if (this.viewMode === 'group') {
+			this.treeView.title += ' (分组)';
 		}
-		return {
-			label: `${element.index}. ${element.name}`,
-			tooltip: `${element.difficulty}, 通过率 ${element.passRate}`,
-			iconPath: iconPath,
-			resourceUri: element.uri,
-			collapsibleState: vscode.TreeItemCollapsibleState.None,
-			command: {
-				title: "Click Problem",
-				command: "acWing.exploreProblem",
-				arguments: [element.id, element],
-			}
-		};
 	}
 
-	async getChildren(element?: Problem): Promise<Problem[]> {
+	getTreeItem(element: TreeNode): vscode.TreeItem {
+		if (element instanceof SourceGroup) {
+			return SourceGroup.toTreeItem(element);
+		}
+		return Problem.toTreeItem(element);
+	}
+
+	async getChildren(element?: TreeNode): Promise<TreeNode[]> {
 		if (!acwingManager.isLogin()) {
 			vscode.window.showInformationMessage('请设置acwing cooke.', ... ['OK']).then(function(val) {
 				if (val) {
@@ -161,11 +131,27 @@ export class ProblemTreeProvider implements vscode.TreeDataProvider<Problem> {
 		if (!element) {
 			let problemNodes = await acwingManager.getProblemsByPage(this.currentPage);
 			if (problemNodes) {
+				this.problemList = problemNodes;
 				this.updateTitlte();
 				this.mContext?.globalState.update('lastPage', this.currentPage);
+
+				if (this.viewMode === 'group') {
+					const map = new Map<string, Problem[]>();
+					for (const p of problemNodes) {
+						const key = p.source || '未分类';
+						if (!map.has(key)) { map.set(key, []); }
+						map.get(key)!.push(p);
+					}
+					return Array.from(map.entries()).map(([s, ps]) => new SourceGroup(s, ps));
+				}
 				return problemNodes;
 			}
 		}
+
+		if (element instanceof SourceGroup) {
+			return element.problems;
+		}
+
 		return [];
 	}
 }

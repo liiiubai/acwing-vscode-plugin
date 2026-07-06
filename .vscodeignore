@@ -8,3 +8,9 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+.trae/**
+local_files/**
+docs/**
+test.js
+_debug_*
+node_modules/**

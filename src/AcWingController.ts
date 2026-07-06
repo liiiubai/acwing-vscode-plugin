@@ -6,14 +6,14 @@
  */
 import * as fs from "fs";
 import * as vscode from 'vscode';
-import * as WebSocket from 'ws';
+import WebSocket from 'ws';
 import * as path from "path";
 import * as fse from "fs-extra";
-import * as filenamify from 'filenamify';
+import filenamify from 'filenamify';
 
 import { ConfigurationChangeEvent, Disposable, languages, workspace, FileSystemProvider, ExtensionContext } from "vscode";
 import { customCodeLensProvider, CustomCodeLensProvider } from "./preview/CustomCodeLensProvider";
-import { acwingManager } from "./repo/AcwingManager";
+import { acwingManager } from "./repo/acwingManager";
 import { problemPreviewView } from './preview/ProblemPreviewView';
 import { ProblemTreeProvider } from './explorer/ProblemTreeView';
 import { Problem } from "./repo/Problem";
@@ -66,13 +66,64 @@ export class AcWingController implements Disposable {
         this.mContext.globalState.update('lastPage', 1);
     }
 
+    public async searchProblem(): Promise<void> {
+        if (!acwingManager.isLogin()) {
+            vscode.window.showWarningMessage('搜索功能需要登录，请先设置 Cookie');
+            return;
+        }
+
+        const keyword = await vscode.window.showInputBox({
+            title: '搜索题目',
+            prompt: '输入关键词',
+            placeHolder: '例如：背包问题',
+        });
+        if (!keyword) return;
+
+        const results = await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Window, title: '搜索中...' },
+            () => acwingManager.searchProblems(keyword)
+        );
+
+        if (!results || results.length === 0) {
+            vscode.window.showInformationMessage('未找到相关题目');
+            return;
+        }
+
+        const items = results.map(p => ({
+            label: `${p.index}. ${p.name}`,
+            description: `${p.difficulty} | 通过率 ${p.passRate}`,
+            detail: p.source ? `来源: ${p.source}` : '',
+            problem: p,
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+            title: `搜索结果 - "${keyword}"`,
+            placeHolder: '选择题目',
+        });
+
+        if (selected) {
+            await this.exploreProblem(selected.problem.id, selected.problem);
+        }
+    }
+
     // 点击问题的时候
     public async exploreProblem (problemID: string, problem: Problem) {
-        console.log('AcWingController::previewProblem() ' + problemID);
+        console.log('AcWingController::exploreProblem() ' + problemID);
         if (!problemID) {
             problemID = await this.inputProblemID();
         }
         if (!problemID) return;
+
+        // 如果是课程题目（有活动题目 ID），先解析获取真实题库数据库 ID
+        if (problem && problem.activityProblemId) {
+            const dbId = await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Window, title: '解析题目...' },
+                () => acwingManager.resolveActivityProblemId(problem.activityProblemId!)
+            );
+            if (dbId) {
+                problemID = dbId;
+            }
+        }
 
         // 根据模式进行处理
         const mode = workspace.getConfiguration().get<string>("acWing.clickProblemItem", 'Problem');
@@ -306,7 +357,7 @@ export class AcWingController implements Disposable {
         this.webSocket = new WebSocket("wss://www.acwing.com/wss/socket/", {
           headers:  {
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Cookie': acwingManager.getCookie(),
           }
         });
