@@ -474,6 +474,20 @@ class AcwingManager implements Disposable {
     });
     // 样例
     item.codeStdin = $('#run-code-stdin').text();
+    // 从题目描述中解析输入样例和输出样例
+    $('.main-martor-content h4').each(function() {
+      const h4Text = $(this).text().trim();
+      const nextPre = $(this).next('pre');
+      if (nextPre.length === 0) return;
+      const sampleText = nextPre.find('code').text() || nextPre.text();
+      if (h4Text.includes('输入样例')) {
+        if (!item.codeStdin.trim()) {
+          item.codeStdin = sampleText.trim();
+        }
+      } else if (h4Text.includes('输出样例')) {
+        item.codeStdout = sampleText.trim();
+      }
+    });
 
     // 解析代码模板
     let codeToolHtml: string = $('#code_tool_bar').html() || "";

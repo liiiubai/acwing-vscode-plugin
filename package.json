@@ -2,7 +2,7 @@
   "name": "vscode-acwing",
   "displayName": "vscode-acwing",
   "description": "Solve AcWing problems in VS Code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "yseternal",
   "publisher": "richard223",
   "license": "MIT",
@@ -96,7 +96,11 @@
         "icon": "$(explorer-view-icon)"
       },
       {
-        "command": "acWing.editProblem",
+        "command": "acWing.newSolution",
+          "title": "AcWing: 新建解法"
+        },
+        {
+          "command": "acWing.editProblem",
         "title": "解题",
         "category": "AcWing",
         "icon": "$(keybindings-edit)"

@@ -1,12 +1,9 @@
 /*
  * @Author: richard 
- * @Date: 2022-11-17 14:57:06 
+ * @Date: 2022-11-17 14:56:48 
  * @Last Modified by:   richard 
- * @Last Modified time: 2022-11-17 14:57:06 
+ * @Last Modified time: 2022-11-17 14:56:48 
  */
-
-import { StringDecoder } from "string_decoder";
-import { Command, Uri } from "vscode";
 
 export class ProblemContent {
     public id: string;
@@ -20,8 +17,9 @@ export class ProblemContent {
     private _contentHtml: string = "";
     private _codeTemplate: object | undefined = undefined;
     private _codeStdin: string = "";
+    private _codeStdout: string = "";
 
-    constructor(id: string) { 
+    constructor(id: string) {
         this.id = id;
     }
 
@@ -93,5 +91,13 @@ export class ProblemContent {
 
     public set codeStdin(value: string) {
         this._codeStdin = value;
+    }
+
+    public get codeStdout(): string {
+        return this._codeStdout;
+    }
+
+    public set codeStdout(value: string) {
+        this._codeStdout = value;
     }
 }

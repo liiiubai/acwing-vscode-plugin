@@ -5,6 +5,8 @@
  * @Last Modified time: 2022-11-17 14:56:34 
  */
 import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs";
 
 export class CustomCodeLensProvider implements vscode.CodeLensProvider {
 
@@ -110,7 +112,32 @@ export class CustomCodeLensProvider implements vscode.CodeLensProvider {
                 arguments: [problemID],
             }));
         }
-        return codeLens;
+        
+        // 新建解法
+        codeLens.push(new vscode.CodeLens(rangeStart, {
+            title: "新建解法",
+            command: "acWing.newSolution",
+            arguments: [problemID, lang],
+        }));
+
+        // 切换解法 - 扫描同目录下的其他 sol 文件
+        const currentDir = path.dirname(document.uri.fsPath);
+        const currentFile = path.basename(document.uri.fsPath);
+        if (fs.existsSync(currentDir)) {
+            const solFiles = fs.readdirSync(currentDir).filter((f: string) => 
+                f.startsWith('sol') && f !== currentFile && f.endsWith(path.extname(currentFile))
+            );
+            for (const solFile of solFiles) {
+                const solPath = path.join(currentDir, solFile);
+                codeLens.push(new vscode.CodeLens(rangeStart, {
+                    title: "切换到 " + solFile,
+                    command: "vscode.open",
+                    arguments: [vscode.Uri.file(solPath)],
+                }));
+            }
+        }
+
+return codeLens;
     }
 }
 

@@ -22,6 +22,15 @@ import { ProblemContent } from "./repo/ProblemContent";
 export class AcWingController implements Disposable {
     static readonly ACWIGN_STATUS_NAMES = {"Uploading":"Uploading","Pending":"Pending","Judging":"Judging","Running":"Running","Too many tasks":"Too many tasks","Upload Failed":"Upload Failed","Input Limit Exceeded":"Input Limit Exceeded","COMPILE_ERROR":"Compile Error","WRONG_ANSWER":"Wrong Answer","TIME_LIMIT_EXCEEDED":"Time Limit Exceeded","MEMORY_LIMIT_EXCEEDED":"Memory Limit Exceeded","OUTPUT_LIMIT_EXCEEDED":"Output Limit Exceeded","RUNTIME_ERROR":"Runtime Error","SEGMENTATION_FAULT":"Segmentation Fault","PRESENTATION_ERROR":"Presentation Error","INTERNAL_ERROR":"Internal Error","FLOAT_POINT_EXCEPTION":"Float Point Exception","NON_ZERO_EXIT_CODE":"Non Zero Exit Code","ACCEPTED":"Accepted","FINISHED":"Finished"};
     static readonly ACWIGN_STATUS_COLORS = {"Uploading":"#9d9d9d","Pending":"#9d9d9d","Judging":"#337ab7","Running":"#337ab7","Too many tasks":"#d05451","Upload Failed":"#d05451","Input Limit Exceeded":"#d05451","Compile Error":"#d05451","Wrong Answer":"#d05451","Time Limit Exceeded":"#d05451","Memory Limit Exceeded":"#d05451","Output Limit Exceeded":"#d05451","Runtime Error":"#d05451","Segmentation Fault":"#d05451","Presentation Error":"#d05451","Internal Error":"#d05451","Float Point Exception":"#d05451","Non Zero Exit Code":"#d05451","Accepted":"#449d44","Finished":"#449d44"};
+    static readonly LANG_COMMENT_MAP: Record<string, string> = {
+        'C++': '//',
+        'C': '//',
+        'Java': '//',
+        'Python': '#',
+        'Javascript': '//',
+        'Python3': '#',
+        'Go': '//',
+    }
     static readonly LANG_SUFFIX_MAP = {
         'C++': 'cpp',
         'C': 'c',
@@ -149,6 +158,45 @@ export class AcWingController implements Disposable {
     }
 
     // 显示编辑器
+    // 获取代码保存的根目录
+    private getWorkspaceFolder(): string {
+        let fileFolder = workspace.getConfiguration().get<string>("acWing.workspaceFolder", '');
+        if (fileFolder) {
+            return fileFolder;
+        }
+        // 优先使用当前工作区
+        if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+            return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'acwing');
+        }
+        // 回退到全局存储
+        return this.mContext.globalStorageUri.fsPath;
+    }
+
+    // 获取题目目录路径
+    private getProblemDir(problemID: string, problemName: string): string {
+        const baseFolder = this.getWorkspaceFolder();
+        let dirName = problemID + '.' + filenamify(problemName.trim().replace(/ /g, ''), {replacement: ''});
+        return path.join(baseFolder, dirName);
+    }
+
+    // 获取下一个可用的解法编号
+    private getNextSolutionNum(problemDir: string, langSuffix: string): number {
+        if (!fs.existsSync(problemDir)) {
+            return 1;
+        }
+        let maxNum = 0;
+        const files = fs.readdirSync(problemDir);
+        for (const file of files) {
+            const match = file.match(/^sol(\d+)\./);
+            if (match) {
+                const num = parseInt(match[1]);
+                if (num > maxNum) maxNum = num;
+            }
+        }
+        return maxNum + 1;
+    }
+
+    // 显示编辑器
     public async editProblem (problemID: string, isSideMode: boolean = false) {
         if (!problemID) {
             problemID = await this.inputProblemID();
@@ -161,29 +209,56 @@ export class AcWingController implements Disposable {
             console.error('getProblemContentById() failed ' + problemID);
             return;
         }
-        // 获取默认的语言
         const language = workspace.getConfiguration().get<string>("acWing.defaultLanguage", 'C++');
+        const langSuffix = AcWingController.LANG_SUFFIX_MAP[language];
 
-        // 文件地址
-        let fileFolder = workspace.getConfiguration().get<string>("acWing.workspaceFolder", '');
-        if (!fileFolder) {
-            fileFolder = this.mContext.globalStorageUri.fsPath;
+        const problemDir = this.getProblemDir(problemID, problemContent.name);
+        const sol1Path = path.join(problemDir, 'sol1.' + langSuffix);
+
+        // 如果 sol1 已存在，直接打开
+        if (fs.existsSync(sol1Path)) {
+            vscode.window.showTextDocument(vscode.Uri.file(sol1Path), {
+                preview: false,
+                viewColumn: isSideMode ? vscode.ViewColumn.Two : vscode.ViewColumn.One
+            });
+            return;
         }
-        let fileName: string = problemContent.name.trim();
-        fileName = fileName.replace(/ /g, "");
-        fileName = filenamify(fileName, {replacement: ''});
-        fileName += '.' + AcWingController.LANG_SUFFIX_MAP[language]
-        let finalPath: string = path.join(fileFolder, fileName);
 
-        // create file
+        // 否则创建新的
         try {
-            this.createProblemCode(problemID, problemContent, finalPath, language);
-            // 显示几行
-            vscode.window.showTextDocument(vscode.Uri.file(finalPath), 
-                { 
-                    preview: false, 
-                    viewColumn: isSideMode ? vscode.ViewColumn.Two: vscode.ViewColumn.One 
-                });
+            await fse.ensureDir(problemDir);
+            this.createProblemCode(problemID, problemContent, sol1Path, language);
+            vscode.window.showTextDocument(vscode.Uri.file(sol1Path), {
+                preview: false,
+                viewColumn: isSideMode ? vscode.ViewColumn.Two : vscode.ViewColumn.One
+            });
+        } catch (err) {
+            vscode.window.showErrorMessage('Error ' + err);
+        }
+    }
+
+    // 新建解法
+    public async newSolution (problemID: string, lang: string) {
+        if (!problemID || !lang) return;
+
+        let problemContent = await acwingManager.getProblemContentById(problemID);
+        if (!problemContent) {
+            vscode.window.showErrorMessage('加载题目失败');
+            return;
+        }
+
+        const langSuffix = AcWingController.LANG_SUFFIX_MAP[lang];
+        const problemDir = this.getProblemDir(problemID, problemContent.name);
+        const nextNum = this.getNextSolutionNum(problemDir, langSuffix);
+        const solPath = path.join(problemDir, 'sol' + nextNum + '.' + langSuffix);
+
+        try {
+            await fse.ensureDir(problemDir);
+            this.createProblemCode(problemID, problemContent, solPath, lang);
+            vscode.window.showTextDocument(vscode.Uri.file(solPath), {
+                preview: false,
+                viewColumn: vscode.ViewColumn.One
+            });
         } catch (err) {
             vscode.window.showErrorMessage('Error ' + err);
         }
@@ -249,14 +324,24 @@ export class AcWingController implements Disposable {
             content = problemContent.codeTemplate[lang] || "";
         }
 
-        // 写入标题
+        // 写入标题和样例
+        const commentChar = AcWingController.LANG_COMMENT_MAP[lang] || '//';
+        let samples = '';
+        if (problemContent.codeStdin && problemContent.codeStdin.trim()) {
+            const stdinLines = problemContent.codeStdin.trim().split('\n').map((l: string) => commentChar + ' ' + l).join('\n');
+            samples += '\n' + commentChar + ' 输入样例:\n' + stdinLines + '\n';
+        }
+        if (problemContent.codeStdout && problemContent.codeStdout.trim()) {
+            const stdoutLines = problemContent.codeStdout.trim().split('\n').map((l: string) => commentChar + ' ' + l).join('\n');
+            samples += '\n' + commentChar + ' 输出样例:\n' + stdoutLines + '\n';
+        }
         const header = 
 `/*
 * @acwing app=acwing.cn id=${problemID} lang=${lang}
 *
 * ${problemContent.name}
 */
-
+${samples}
 // @acwing code start
 
 `;

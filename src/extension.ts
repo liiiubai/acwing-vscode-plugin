@@ -36,6 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("acWing.exploreProblem", async (id: string, problem: Problem) => acWingController.exploreProblem(id, problem)),
 		vscode.commands.registerCommand("acWing.previewProblem", async (id: string, problem: Problem) => acWingController.previewProblem(id, problem)),
 		vscode.commands.registerCommand("acWing.editProblem", async (id: string) => acWingController.editProblem(id)),
+		vscode.commands.registerCommand("acWing.newSolution", async (id: string, lang: string) => acWingController.newSolution(id, lang)),
 		vscode.commands.registerCommand("acWing.showSource", (async (id: string) => acWingController.showSource(id))),
 		vscode.commands.registerCommand("acWing.showSolution", (async (id: string) => acWingController.showSolution(id))),
 		vscode.commands.registerCommand("acWing.showSolutionVideo", (async (id: string) => acWingController.showSolutionVideo(id))),

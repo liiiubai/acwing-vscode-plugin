@@ -2,7 +2,7 @@ out
 dist
 node_modules
 .vscode-test/
-*.vsix
+# # *.vsix - keep VSIX in repo - keep VSIX in repo
 .trae/
 local_files/
 _debug_*
