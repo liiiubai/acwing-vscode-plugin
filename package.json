@@ -2,7 +2,7 @@
   "name": "vscode-acwing",
   "displayName": "vscode-acwing",
   "description": "Solve AcWing problems in VS Code",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "yseternal",
   "publisher": "richard223",
   "license": "MIT",
@@ -221,7 +221,7 @@
             "title": "代码存储目录",
             "type": "string",
             "scope": "application",
-            "description": "代码文件目录路径，默认为ExtensionContext.globalStoragePath",
+            "description": "代码文件目录路径，默认为当前工作区下的acwing目录",
             "default": "",
             "order": 3
           },

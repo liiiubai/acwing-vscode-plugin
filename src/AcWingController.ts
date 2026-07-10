@@ -56,17 +56,24 @@ export class AcWingController implements Disposable {
 
     public async signIn() {
         console.log('signIn()');
-        const pageOption: vscode.InputBoxOptions = {
-			title: "acwing cookies",
-			prompt: "打开AcWing并登录，复制cookies粘贴在这里",
-		};
 
-		let inputCookie: string  = await vscode.window.showInputBox(pageOption) || "";
-		if (!inputCookie) {
-            // vscode.window.showErrorMessage('无效cookies');
-			return;
-		}
-        acwingManager.setCookie(inputCookie);
+        const sessionid = await vscode.window.showInputBox({
+            title: "AcWing Cookie - sessionid",
+            prompt: "打开AcWing并登录，从浏览器Cookie中复制 sessionid 的值",
+            placeHolder: "例如: cg3yv6xywu5qll4ng63j62opg1hc5alc",
+        });
+        if (!sessionid) return;
+
+        const csrftoken = await vscode.window.showInputBox({
+            title: "AcWing Cookie - csrftoken",
+            prompt: "从浏览器Cookie中复制 csrftoken 的值",
+            placeHolder: "例如: C8R921k6EHK6Ggse2qkQkGZRkdK7GLOh",
+        });
+        if (!csrftoken) return;
+
+        const cookie = "sessionid=" + sessionid.trim() + "; csrftoken=" + csrftoken.trim();
+        acwingManager.setCookie(cookie);
+        vscode.window.showInformationMessage('AcWing Cookie 设置成功');
     }
 
     public clearCache() {
